@@ -19,12 +19,11 @@ ssh pi@192.168.178.88
 # Update the system:
 sudo apt-get update
 sudo apt-get upgrade
-sudo rpi-update
 
 # Install java:
-sudo apt install openjdk
+sudo apt install openjdk-17-jdk -y
 
-# Install schaakrob:
+# Install temperatuurmeting:
 mkdir ~/git
 cd ~/git
 git clone https://github.com/robbertvdzon/temperatuurmeting

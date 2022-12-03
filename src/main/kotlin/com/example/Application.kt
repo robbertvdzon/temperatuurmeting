@@ -11,14 +11,18 @@ import io.ktor.server.routing.*
 import org.jfree.chart.ChartFactory
 import org.jfree.chart.JFreeChart
 import org.jfree.chart.plot.PlotOrientation
-import org.jfree.data.xy.XYSeries
-import org.jfree.data.xy.XYSeriesCollection
+import org.jfree.data.time.Millisecond
+import org.jfree.data.time.RegularTimePeriod
+import org.jfree.data.time.TimeSeries
+import org.jfree.data.time.TimeSeriesCollection
 import org.jfree.svg.SVGGraphics2D
 import org.jfree.svg.SVGUtils
 import java.awt.Rectangle
 import java.io.File
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
+import java.util.*
 
 
 val database = TempDatabase()
@@ -83,6 +87,13 @@ fun getHtml(): String {
             </html>
         """.trimIndent()
 }
+fun convertToDateViaInstant(dateToConvert: LocalDateTime): Date {
+    return Date
+        .from(
+            dateToConvert.atZone(ZoneId.systemDefault())
+                .toInstant()
+        )
+}
 
 fun test(): String {
 
@@ -95,62 +106,62 @@ fun test(): String {
     val client5 = data.filter { it.host == "28:cd:c1:02:1e:2c" }
     val client6 = data.filter { it.host == "28:cd:c1:02:1e:26" }
 
-    val svgXYDataSeries = XYSeriesCollection()
+    val timeSeriesCollection = TimeSeriesCollection()
 
-    val team1_xy_data = XYSeries("Aanbouw")
+    val team1_xy_data = TimeSeries("Aanbouw")
     client1.forEach {
         val time = it.timestamp.toDouble()
         val temp = it.temp-14000
-        team1_xy_data.add(time, temp)
+        team1_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
-    svgXYDataSeries.addSeries(team1_xy_data)
+    timeSeriesCollection.addSeries(team1_xy_data)
 
-    val team2_xy_data = XYSeries("Huiskamer")
+    val team2_xy_data = TimeSeries("Huiskamer")
     client2.forEach {
         val time = it.timestamp.toDouble()
         val temp = it.temp-14000
-        team2_xy_data.add(time, temp)
+        team2_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
-    svgXYDataSeries.addSeries(team2_xy_data)
+    timeSeriesCollection.addSeries(team2_xy_data)
 
-    val team3_xy_data = XYSeries("Schuur")
+    val team3_xy_data = TimeSeries("Schuur")
     client3.forEach {
         val time = it.timestamp.toDouble()
         val temp = it.temp-14000
-        team3_xy_data.add(time, temp)
+        team3_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
-    svgXYDataSeries.addSeries(team3_xy_data)
+    timeSeriesCollection.addSeries(team3_xy_data)
 
-    val team4_xy_data = XYSeries("Bijkeuken")
+    val team4_xy_data = TimeSeries("Bijkeuken")
     client4.forEach {
         val time = it.timestamp.toDouble()
         val temp = it.temp-14000
-        team4_xy_data.add(time, temp)
+        team4_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
-    svgXYDataSeries.addSeries(team4_xy_data)
+    timeSeriesCollection.addSeries(team4_xy_data)
 
-    val team5_xy_data = XYSeries("Kelder")
+    val team5_xy_data = TimeSeries("Kelder")
     client5.forEach {
         val time = it.timestamp.toDouble()
         val temp = it.temp-14000
-        team5_xy_data.add(time, temp)
+        team5_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
-    svgXYDataSeries.addSeries(team5_xy_data)
+    timeSeriesCollection.addSeries(team5_xy_data)
 
-    val team6_xy_data = XYSeries("CV")
+    val team6_xy_data = TimeSeries("CV")
     client6.forEach {
         val time = it.timestamp.toDouble()
         val temp = it.temp-14000
-        team6_xy_data.add(time, temp)
+        team6_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
-    svgXYDataSeries.addSeries(team6_xy_data)
+    timeSeriesCollection.addSeries(team6_xy_data)
 
-    val XYLineChart = ChartFactory.createXYLineChart("Temp", "Time", "Temp", svgXYDataSeries, PlotOrientation.VERTICAL, true, true, false)
+    val XYLineChart = ChartFactory.createTimeSeriesChart("Temp", "Time", "Temp", timeSeriesCollection)
 
 
     val chart: JFreeChart = XYLineChart
-    val g2 = SVGGraphics2D(600.0, 400.0)
-    val r = Rectangle(0, 0, 600, 400)
+    val g2 = SVGGraphics2D(2000.0, 400.0)
+    val r = Rectangle(0, 0, 2000, 400)
     chart.draw(g2, r)
     val f = File("SVGBarChartDemo1.svg")
     SVGUtils.writeToSVG(f, g2.svgElement)
