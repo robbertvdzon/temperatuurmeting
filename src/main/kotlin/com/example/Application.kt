@@ -10,9 +10,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.jfree.chart.ChartFactory
 import org.jfree.chart.JFreeChart
-import org.jfree.chart.plot.PlotOrientation
 import org.jfree.data.time.Millisecond
-import org.jfree.data.time.RegularTimePeriod
 import org.jfree.data.time.TimeSeries
 import org.jfree.data.time.TimeSeriesCollection
 import org.jfree.svg.SVGGraphics2D
@@ -24,6 +22,12 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.*
 
+private const val AANBOUW = "28:cd:c1:02:1e:22" // nr 1
+private const val HUISKAMER = "28:cd:c1:02:1e:2a" // nr 2
+private const val SCHUUR = "28:cd:c1:02:1e:24" // nr 3
+private const val BIJKEUKEN = "28:cd:c1:02:1e:28" // nr 4
+private const val KELDER = "28:cd:c1:02:1e:2c" // nr 5
+private const val CV = "28:cd:c1:02:1e:26" // nr 6
 
 val database = TempDatabase()
 val lastAdd: MutableMap<String, Temperature> = mutableMapOf()
@@ -69,20 +73,24 @@ fun main(args: Array<String>) {
 
 }
 
-fun Application.module() {
-    routing {
-        get("/") {
-            call.respondText("Hello, world!")
-        }
-    }
-}
 
 fun getHtml(): String {
+    val data: List<Temperature> = database.getAll()
     return """
             <html>
             <body>
-             hoi
-             ${test()}
+             ${createGraph("CV",data.filter { it.host == CV })}
+             <br>
+             ${createGraph("Schuur",data.filter { it.host == SCHUUR })}
+             <br>
+             ${createGraph("Huiskamer",data.filter { it.host == HUISKAMER })}
+             <br>
+             ${createGraph("Aanbouw",data.filter { it.host == AANBOUW })}
+             <br>
+             ${createGraph("Bijkeuken",data.filter { it.host == BIJKEUKEN })}
+             <br>
+             ${createGraph("Kelder",data.filter { it.host == KELDER })}
+             <br>
             </body>
             </html>
         """.trimIndent()
@@ -95,68 +103,23 @@ fun convertToDateViaInstant(dateToConvert: LocalDateTime): Date {
         )
 }
 
-fun test(): String {
 
-
-    val data = database.getAll()
-    val client1 = data.filter { it.host == "28:cd:c1:02:1e:22" }
-    val client2 = data.filter { it.host == "28:cd:c1:02:1e:2a" }
-    val client3 = data.filter { it.host == "28:cd:c1:02:1e:24" }
-    val client4 = data.filter { it.host == "28:cd:c1:02:1e:28" }
-    val client5 = data.filter { it.host == "28:cd:c1:02:1e:2c" }
-    val client6 = data.filter { it.host == "28:cd:c1:02:1e:26" }
+fun createGraph(title: String, data: List<Temperature>): String {
 
     val timeSeriesCollection = TimeSeriesCollection()
+    val startDate = LocalDateTime.of(2022, 12,2,22,0,0).toEpochSecond(ZoneOffset.UTC)
+    val endDate = LocalDateTime.of(2023, 12,2,22,0,0).toEpochSecond(ZoneOffset.UTC)
 
-    val team1_xy_data = TimeSeries("Aanbouw")
-    client1.forEach {
+    val seriesData = TimeSeries(title)
+    data.filter { it.timestamp>startDate && it.timestamp<endDate}
+        .
+    forEach {
         val time = it.timestamp.toDouble()
         val temp = it.temp-14000
-        team1_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
+        seriesData.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
-    timeSeriesCollection.addSeries(team1_xy_data)
-
-    val team2_xy_data = TimeSeries("Huiskamer")
-    client2.forEach {
-        val time = it.timestamp.toDouble()
-        val temp = it.temp-14000
-        team2_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
-    }
-    timeSeriesCollection.addSeries(team2_xy_data)
-
-    val team3_xy_data = TimeSeries("Schuur")
-    client3.forEach {
-        val time = it.timestamp.toDouble()
-        val temp = it.temp-14000
-        team3_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
-    }
-    timeSeriesCollection.addSeries(team3_xy_data)
-
-    val team4_xy_data = TimeSeries("Bijkeuken")
-    client4.forEach {
-        val time = it.timestamp.toDouble()
-        val temp = it.temp-14000
-        team4_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
-    }
-    timeSeriesCollection.addSeries(team4_xy_data)
-
-    val team5_xy_data = TimeSeries("Kelder")
-    client5.forEach {
-        val time = it.timestamp.toDouble()
-        val temp = it.temp-14000
-        team5_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
-    }
-    timeSeriesCollection.addSeries(team5_xy_data)
-
-    val team6_xy_data = TimeSeries("CV")
-    client6.forEach {
-        val time = it.timestamp.toDouble()
-        val temp = it.temp-14000
-        team6_xy_data.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
-    }
-    timeSeriesCollection.addSeries(team6_xy_data)
-
-    val XYLineChart = ChartFactory.createTimeSeriesChart("Temp", "Time", "Temp", timeSeriesCollection)
+    timeSeriesCollection.addSeries(seriesData)
+    val XYLineChart = ChartFactory.createTimeSeriesChart(title, "", "", timeSeriesCollection, false, false, false)
 
 
     val chart: JFreeChart = XYLineChart
