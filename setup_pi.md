@@ -23,14 +23,8 @@ sudo apt-get upgrade
 # Install java:
 sudo apt install openjdk-17-jdk -y
 
-# Install temperatuurmeting:
-mkdir ~/git
-cd ~/git
-git clone https://github.com/robbertvdzon/temperatuurmeting
-
-# Initial build and run the code:
-cd ~/git/temperatuurmeting
-./update_and_run.sh
+# build and upload the jar file to pi (run this on laptop):
+./build_and_upload.sh
 
 # Add the folling to  "crontab -e"
 @reboot sh /home/robbert/temperatuurmeting.sh
@@ -38,8 +32,15 @@ cd ~/git/temperatuurmeting
 # Create /home/robbert/temperatuurmeting.sh:
 #!/bin/sh
 echo startting >> /tmp/temperatuurmeting.log
-cd /home/robbert/git/temperatuurmeting
-./run.sh
+cd /home/robbert
+java -jar temperatuurmeting.jar
 
 # Change permissions:
 chmod a+x /home/robbert/temperatuurmeting.sh
+
+# Optional: copy db from PI to laptop
+scp robbert@192.168.178.84:/home/robbert/temperatures.mv.db /Users/robbertvdzon/git/temperatuurmeting
+
+# Optional: copy db from laptop to PI
+scp /Users/robbertvdzon/git/temperatuurmeting/temperatures.mv.db  robbert@192.168.178.84:/home/robbert
+

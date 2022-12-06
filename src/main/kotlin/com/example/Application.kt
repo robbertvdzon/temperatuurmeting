@@ -20,20 +20,38 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 private const val AANBOUW = "28:cd:c1:02:1e:22" // nr 1
 private const val HUISKAMER = "28:cd:c1:02:1e:2a" // nr 2
 private const val SCHUUR = "28:cd:c1:02:1e:24" // nr 3
 private const val BIJKEUKEN = "28:cd:c1:02:1e:28" // nr 4
-private const val KELDER = "28:cd:c1:02:1e:2c" // nr 5
+private const val EETKAMER = "28:cd:c1:02:1e:2c" // nr 5
 private const val CV = "28:cd:c1:02:1e:26" // nr 6
+
+private val rooms: Map<String, String> = mapOf(
+    AANBOUW to "AANBOUW (1)",
+    HUISKAMER to "HUISKAMER (2)",
+    SCHUUR to "SCHUUR (3)",
+    BIJKEUKEN to "BIJKEUKEN (4)" ,
+    EETKAMER to "EETKAMER (5)",
+    CV to "CV (6)"
+)
 
 val database = TempDatabase()
 val lastAdd: MutableMap<String, Temperature> = mutableMapOf()
 
 fun getTimestamp(timestamp: Long): String {
-    return LocalDateTime.ofEpochSecond(timestamp, 0, ZoneOffset.UTC).toString()
+    return LocalDateTime.ofEpochSecond(timestamp, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyy-MM-dd HH:mm:ss"))
+}
+
+fun toTemp(temp: Double): Double{
+    //21 degrees = 14053
+    //1 degree = 21.6
+    val diffFrom21Degrees = 14053.0 - temp
+    val diffDegrees = diffFrom21Degrees/21.6
+    return 21.0+diffDegrees
 }
 
 fun main(args: Array<String>) {
@@ -48,7 +66,14 @@ fun main(args: Array<String>) {
                 call.respondText(database.getAll().toString())
             }
             get("/last") {
-                val list = lastAdd.values.map { "${it.host}: ${getTimestamp(it.timestamp)} : ${it.temp}" }
+                val list = rooms.keys
+//                    .filter { it !=  SCHUUR && it != CV}
+                    .map { key ->
+                    val lastAdded = lastAdd.get(key)?:Temperature("?",0,0.0)
+                    val name = rooms.get(key)!!
+                    "${name.padEnd(15)}: ${getTimestamp(lastAdded.timestamp)} : ${toTemp(lastAdded.temp)}"
+                }
+//                val list = lastAdd.values.map { "${getHost(it)}: ${getTimestamp(it.timestamp)} : ${it.temp}" }
                 call.respondText(list.joinToString(separator = "\n"))
             }
             get("/post/{host}/{temp}") {
@@ -73,6 +98,10 @@ fun main(args: Array<String>) {
 
 }
 
+private fun getHost(it: Temperature): String {
+    return rooms.getOrDefault(it.host,it.host)
+}
+
 
 fun getHtml(): String {
     val data: List<Temperature> = database.getAll()
@@ -89,7 +118,7 @@ fun getHtml(): String {
              <br>
              ${createGraph("Bijkeuken",data.filter { it.host == BIJKEUKEN })}
              <br>
-             ${createGraph("Kelder",data.filter { it.host == KELDER })}
+             ${createGraph("Eetkamer",data.filter { it.host == EETKAMER })}
              <br>
             </body>
             </html>
@@ -107,7 +136,7 @@ fun convertToDateViaInstant(dateToConvert: LocalDateTime): Date {
 fun createGraph(title: String, data: List<Temperature>): String {
 
     val timeSeriesCollection = TimeSeriesCollection()
-    val startDate = LocalDateTime.of(2022, 12,2,22,0,0).toEpochSecond(ZoneOffset.UTC)
+    val startDate = LocalDateTime.of(2022, 12,3,17,0,0).toEpochSecond(ZoneOffset.UTC)
     val endDate = LocalDateTime.of(2023, 12,2,22,0,0).toEpochSecond(ZoneOffset.UTC)
 
     val seriesData = TimeSeries(title)
@@ -115,7 +144,7 @@ fun createGraph(title: String, data: List<Temperature>): String {
         .
     forEach {
         val time = it.timestamp.toDouble()
-        val temp = it.temp-14000
+        val temp = toTemp(it.temp)
         seriesData.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(),0, ZoneOffset.UTC))), temp)
     }
     timeSeriesCollection.addSeries(seriesData)
@@ -126,10 +155,10 @@ fun createGraph(title: String, data: List<Temperature>): String {
     val g2 = SVGGraphics2D(2000.0, 400.0)
     val r = Rectangle(0, 0, 2000, 400)
     chart.draw(g2, r)
-    val f = File("SVGBarChartDemo1.svg")
+    val f = File("temp_chart.svg")
     SVGUtils.writeToSVG(f, g2.svgElement)
 
-    val img = File("SVGBarChartDemo1.svg").useLines { it.toList() }
+    val img = File("temp_chart.svg").useLines { it.toList() }
     return img[1]
 
 }
