@@ -18,6 +18,7 @@ import org.jfree.svg.SVGUtils
 import java.awt.Rectangle
 import java.io.File
 import java.lang.Math.round
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -52,8 +53,18 @@ private val correctionsPerRoom: Map<String, Long> = mapOf(
 val database = TempDatabase()
 val lastAdd: MutableMap<String, Temperature> = mutableMapOf()
 
+
+var range = 1L
+var startDate = LocalDate.now()
+var endDate = startDate.plusDays(range)
+
+
 fun getTimestamp(timestamp: Long): String {
     return LocalDateTime.ofEpochSecond(timestamp, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyy-MM-dd HH:mm:ss"))
+}
+
+fun getFormattedDate(date: LocalDate): String {
+    return date.format(DateTimeFormatter.ofPattern("yyy-MM-dd"))
 }
 
 fun toTemp(temp: Long): Double {
@@ -64,13 +75,67 @@ fun toTemp(temp: Long): Double {
     return 21.0 + diffDegrees
 }
 
+fun today(){
+    startDate = LocalDate.now()
+    endDate = startDate.plusDays(range)
+}
+fun next(){
+    startDate = startDate.plusDays(1)
+    endDate = startDate.plusDays(range)
+}
+fun prev(){
+    startDate = startDate.minusDays(1)
+    endDate = startDate.plusDays(range)
+}
+fun oneDay(){
+    range = 1L
+    startDate = endDate.minusDays(range)
+}
+fun twoDays(){
+    range = 2L
+    startDate = endDate.minusDays(range)
+}
+fun fourDays(){
+    range = 4L
+    startDate = endDate.minusDays(range)
+}
+
 fun main(args: Array<String>) {
     database.init()
     embeddedServer(Netty, port = 8000) {
 
         routing {
             get("/") {
+                today()
+                oneDay()
+                call.respondRedirect("/reload")
+            }
+            get("/reload") {
                 call.respondText(getHtml(), ContentType.Text.Html)
+            }
+            get("/next") {
+                next()
+                call.respondRedirect("/reload")
+            }
+            get("/prev") {
+                prev()
+                call.respondRedirect("/reload")
+            }
+            get("/today") {
+                today()
+                call.respondRedirect("/reload")
+            }
+            get("/1day") {
+                oneDay()
+                call.respondRedirect("/reload")
+            }
+            get("/2days") {
+                twoDays()
+                call.respondRedirect("/reload")
+            }
+            get("/4days") {
+                fourDays()
+                call.respondRedirect("/reload")
             }
             get("/db") {
                 call.respondText(database.getAll().toString())
@@ -81,19 +146,6 @@ fun main(args: Array<String>) {
                         val lastAdded = lastAdd.get(key).correctTempertature() ?: Temperature("?", 0, 0)
                         val name = rooms.get(key)!!
                         "${name.padEnd(15)}: ${getTimestamp(lastAdded.timestamp)} : ${toTemp(lastAdded.temp).toString().take(6)}"
-                    }
-                call.respondText(list.joinToString(separator = "\n"))
-            }
-            get("/average") {
-                val list = rooms.keys
-                    .map { key ->
-                        val name = rooms.get(key)!!
-                        val allTemps = database.getAll().filter { it.host == key }.map { it.temp }
-                        val average = round(allTemps.average())
-                        val min = allTemps.min()
-                        val max = allTemps.max()
-                        val samples = allTemps.size
-                        "${name.padEnd(15)}: $samples samples, average: $average, min: $min, max: $max "
                     }
                 call.respondText(list.joinToString(separator = "\n"))
             }
@@ -143,11 +195,6 @@ fun main(args: Array<String>) {
 
 }
 
-private fun getHost(it: Temperature): String {
-    return rooms.getOrDefault(it.host, it.host)
-}
-
-
 fun Temperature?.correctTempertature(): Temperature?{
     if (this == null) return null
     val correction = correctionsPerRoom.get(host)?:0
@@ -161,6 +208,16 @@ fun getHtml(): String {
     return """
             <html>
             <body>
+            <a href ="today">[today]</a> &nbsp;
+            <a href ="prev">[prev]</a> &nbsp;
+            <a href ="next">[next]</a>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <a href ="1day">[1day]</a> &nbsp;
+            <a href ="2days">[2days]</a> &nbsp;
+            <a href ="4days">[4days]</a> 
+            <br>
+            ${getFormattedDate(startDate)} - ${getFormattedDate(endDate)} 
+            
              ${createGraph2("All", data)}
              <br>
              ${createGraph("CV", data.filter { it.host == CV })}
@@ -192,11 +249,13 @@ fun convertToDateViaInstant(dateToConvert: LocalDateTime): Date {
 fun createGraph(title: String, data: List<Temperature>): String {
 
     val timeSeriesCollection = TimeSeriesCollection()
-    val startDate = LocalDateTime.of(2022, 12, 10, 12, 0, 0).toEpochSecond(ZoneOffset.UTC)
-    val endDate = LocalDateTime.of(2023, 12, 2, 22, 0, 0).toEpochSecond(ZoneOffset.UTC)
+    val startDate2 = startDate.atStartOfDay().toEpochSecond(ZoneOffset.UTC)
+    val endDate2 = endDate.atStartOfDay().toEpochSecond(ZoneOffset.UTC)
+//    val startDate2 = LocalDateTime.of(2022, 12, 10, 12, 0, 0).toEpochSecond(ZoneOffset.UTC)
+//    val endDate2 = LocalDateTime.of(2023, 12, 2, 22, 0, 0).toEpochSecond(ZoneOffset.UTC)
 
     val seriesData = TimeSeries(title)
-    data.filter { it.timestamp > startDate && it.timestamp < endDate }.forEach {
+    data.filter { it.timestamp > startDate2 && it.timestamp < endDate2 }.forEach {
         val time = it.timestamp.toDouble()
         val temp = toTemp(it.temp)
         seriesData.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(), 0, ZoneOffset.UTC))), temp)
@@ -220,13 +279,15 @@ fun createGraph(title: String, data: List<Temperature>): String {
 fun createGraph2(title: String, data: List<Temperature>): String {
 
     val timeSeriesCollection = TimeSeriesCollection()
-    val startDate = LocalDateTime.of(2022, 12, 10, 12, 0, 0).toEpochSecond(ZoneOffset.UTC)
-    val endDate = LocalDateTime.of(2023, 12, 10, 10, 0, 0).toEpochSecond(ZoneOffset.UTC)
+//    val startDate2 = LocalDateTime.of(2022, 12, 10, 12, 0, 0).toEpochSecond(ZoneOffset.UTC)
+//    val endDate2 = LocalDateTime.of(2023, 12, 10, 10, 0, 0).toEpochSecond(ZoneOffset.UTC)
+    val startDate2 = startDate.atStartOfDay().toEpochSecond(ZoneOffset.UTC)
+    val endDate2 = endDate.atStartOfDay().toEpochSecond(ZoneOffset.UTC)
 
     rooms.keys.filter { it != CV }.forEach { key ->
         val name = rooms.get(key)
         val seriesData = TimeSeries(name)
-        data.filter { it.host == key && it.timestamp > startDate && it.timestamp < endDate }.forEach {
+        data.filter { it.host == key && it.timestamp > startDate2 && it.timestamp < endDate2 }.forEach {
             val time = it.timestamp.toDouble()
             val temp = toTemp(it.temp)
             seriesData.add(Millisecond(convertToDateViaInstant(LocalDateTime.ofEpochSecond(time.toLong(), 0, ZoneOffset.UTC))), temp)
