@@ -106,8 +106,8 @@ fun main(args: Array<String>) {
 
         routing {
             get("/") {
-                today()
                 oneDay()
+                today()
                 call.respondRedirect("/reload")
             }
             get("/reload") {
