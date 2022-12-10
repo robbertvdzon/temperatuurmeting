@@ -32,7 +32,7 @@ class TempDatabase {
 
     fun init() {
         val driverClassName = "org.h2.Driver"
-        val jdbcURL = "jdbc:h2:file:./temperatures"
+        val jdbcURL = "jdbc:h2:file:./temperatures_v2"
         database = Database.connect(jdbcURL, driverClassName)
         transaction(database) {
             SchemaUtils.create(Temperatures)

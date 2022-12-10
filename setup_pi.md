@@ -39,7 +39,7 @@ java -jar temperatuurmeting.jar
 chmod a+x /home/robbert/temperatuurmeting.sh
 
 # Optional: copy db from PI to laptop
-scp robbert@192.168.178.84:/home/robbert/temperatures.mv.db /Users/robbertvdzon/git/temperatuurmeting
+scp robbert@192.168.178.84:/home/robbert/temperatures_v2.mv.db /Users/robbertvdzon/git/temperatuurmeting
 
 # Optional: copy db from laptop to PI
 scp /Users/robbertvdzon/git/temperatuurmeting/temperatures.mv.db  robbert@192.168.178.84:/home/robbert
